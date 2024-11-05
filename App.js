@@ -1,102 +1,106 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, TextInput, Button, FlatList, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, Button, TextInput, Vibration, StyleSheet } from 'react-native';
 
-export default function App() {
-  const [task, setTask] = useState('');
-  const [tasks, setTasks] = useState([]);
+const App = () => {
+  const [workTime, setWorkTime] = useState(25); // Робочий час в хвилинах
+  const [breakTime, setBreakTime] = useState(5); // Час перерви в хвилинах
+  const [time, setTime] = useState(1500); // Таймер у секундах
+  const [isActive, setIsActive] = useState(false);
+  const [isBreak, setIsBreak] = useState(false); // Статус: робота чи перерва
 
-  const addTask = () => {
-    if (task.trim()) {
-      setTasks([...tasks, { id: Date.now().toString(), text: task, completed: false }]);
-      setTask('');
+  useEffect(() => {
+    let interval = null;
+
+    if (isActive && time > 0) {
+      interval = setInterval(() => {
+        setTime(prevTime => prevTime - 1);
+      }, 1000);
+    } else if (!isActive && time !== 0) {
+      clearInterval(interval);
     }
+
+    if (time === 0) {
+      Vibration.vibrate();
+      if (!isBreak) {
+        setTime(breakTime * 60); // Переходимо на час перерви
+      } else {
+        setTime(workTime * 60); // Повертаємось до робочого часу
+      }
+      setIsBreak(!isBreak); // Змінюємо статус
+      clearInterval(interval);
+    }
+
+    return () => clearInterval(interval);
+  }, [isActive, time, isBreak, workTime, breakTime]);
+
+  const startTimer = () => {
+    setTime(workTime * 60); // Запускаємо таймер з робочого часу
+    setIsActive(true);
   };
 
-  const deleteTask = (id) => {
-    setTasks(tasks.filter(task => task.id !== id));
+  const stopTimer = () => {
+    setIsActive(false);
   };
 
-  const toggleTaskCompletion = (id) => {
-    setTasks(tasks.map(task => 
-      task.id === id ? { ...task, completed: !task.completed } : task
-    ));
+  const resetTimer = () => {
+    setIsActive(false);
+    setTime(workTime * 60); // Скидаємо на робочий час
+    setIsBreak(false); // Скидаємо статус
   };
 
-  const unfinishedCount = tasks.filter(task => !task.completed).length;
-  const totalCount = tasks.length;
+  const formatTime = (seconds) => {
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Todo List</Text>
+      <Text style={styles.timer}>{formatTime(time)}</Text>
+      
       <TextInput
         style={styles.input}
-        placeholder="Add a new task"
-        value={task}
-        onChangeText={setTask}
+        keyboardType="numeric"
+        placeholder="Робочий час (хв)"
+        value={String(workTime)}
+        onChangeText={text => setWorkTime(Number(text))}
       />
-      <Button title="Add Task" onPress={addTask} />
-
-      <FlatList
-        data={tasks}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.taskItem}>
-            <TouchableOpacity onPress={() => toggleTaskCompletion(item.id)}>
-              <Text style={[styles.taskText, item.completed && styles.completedTask]}>
-                {item.text}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => deleteTask(item.id)}>
-              <Text style={styles.deleteButton}>Delete</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+      
+      <TextInput
+        style={styles.input}
+        keyboardType="numeric"
+        placeholder="Час перерви (хв)"
+        value={String(breakTime)}
+        onChangeText={text => setBreakTime(Number(text))}
       />
-
-      <Text style={styles.footer}>Unfinished tasks: {unfinishedCount}</Text>
-      <Text style={styles.footer}>Total tasks: {totalCount}</Text>
+      
+      <Button title={isActive ? "Pause" : "Start"} onPress={isActive ? stopTimer : startTimer} />
+      <Button title="Reset" onPress={resetTimer} />
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 20,
-    backgroundColor: '#fff',
   },
-  header: {
-    fontSize: 24,
+  timer: {
+    fontSize: 48,
     marginBottom: 20,
-    textAlign: 'center',
   },
   input: {
+    height: 40,
+    borderColor: 'gray',
     borderWidth: 1,
-    borderColor: '#ccc',
-    padding: 10,
-    marginBottom: 10,
-  },
-  taskItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ccc',
-  },
-  taskText: {
-    fontSize: 18,
-  },
-  completedTask: {
-    textDecorationLine: 'line-through',
-    color: 'grey',
-  },
-  deleteButton: {
-    color: 'red',
-  },
-  footer: {
-    marginTop: 20,
-    textAlign: 'center',
+    marginBottom: 20,
+    paddingHorizontal: 10,
+    width: '80%',
   },
 });
+
+export default App;
 
 
